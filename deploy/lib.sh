@@ -423,6 +423,13 @@ function install_go_23() {
     source /etc/profile
     go version
   fi
+
+  # Append Go paths to /etc/profile if not already present
+  {
+    grep -qxF 'export GOPATH=$HOME/go' ~/.profile || echo 'export GOPATH=$HOME/go'
+    grep -qxF 'export PATH=$PATH:/usr/local/go/bin' ~/.profile || echo 'export PATH=$PATH:/usr/local/go/bin'
+    grep -qxF 'export PATH=$PATH:$GOPATH/bin' ~/.profile || echo 'export PATH=$PATH:$GOPATH/bin'
+  } >> /etc/profile
 }
 
 # Generate self-signed certificate for SAML authentication
