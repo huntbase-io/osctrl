@@ -586,14 +586,16 @@ else
       # Check if certificates exist
       if sudo test -f "$_cert_file" && sudo test -f "$_key_file" ; then
           log "Using existing certificate"
-          sudo cp "$_cert_file" "$_cert_file_a"
+          sudo ln -s "$_cert_file" "$_certificates_dir/$_NAME-admin.pem"
           log "Using existing key"
-          sudo cp "$_key_file" "$_key_file_a"
-          else
+          sudo ln -s "$_key_file" "$_certificates_dir/$_NAME-admin.pem"
+      else
           _log "Generating certificates with certbot"
           certbot_certificates_nginx "$_certificates_dir" "$DOMAIN" "$EMAIL"
-          fi
+          # create symlink for admin certs
+          sudo ln -s "$_cert_file" "$_certificates_dir/$_NAME-admin.pem"
       fi
+    fi
 
 
     # Diffie-Hellman parameter for DHE ciphersuites
@@ -729,7 +731,7 @@ else
     sudo chown osctrl.osctrl "$DEST_PATH/carved_files"
 
     # Copy osquery tables JSON file
-    sudo cp "$SOURCE_PATH/deploy/osquery/data/$OSQUERY_VERSION.json" "$DEST_PATH/data"
+    sudo cp "$SOURCE_PATHx$OSQUERY_VERSION.json" "$DEST_PATH/data"
 
     # Prepare static files for Admin service
     _static_files "$MODE" "$SOURCE_PATH" "$DEST_PATH" "admin/templates" "tmpl_admin"

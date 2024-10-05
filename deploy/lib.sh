@@ -191,7 +191,10 @@ function certbot_certificates_nginx() {
 
   package software-properties-common
   if [[ "$DISTRO" == "ubuntu" ]]; then
-	package python3 python3.12-venv libaugeas0  python3-pip
+	package python3 
+	package python3.12-venv 
+	package libaugeas0  
+	package python3-pip
   fi
   if [[ "$DISTRO" == "centos" ]]; then
 	package dnf install python3 augeas-libs
@@ -412,6 +415,9 @@ function install_go_23() {
   local __arch="$(uname -i)"
   if [[ "$__arch" == "aarch64" ]]; then
     __arch="arm64"
+  fi
+  if [[ "$__arch" == "x86_64" ]]; then
+	__arch="amd64"
   fi
   local __file="go$__version.linux-$__arch.tar.gz"
   local __url="https://dl.google.com/go/$__file"

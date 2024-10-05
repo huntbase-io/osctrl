@@ -71,3 +71,6 @@ go.work.sum
 deploy/docker/conf/tls/*
 .env
 !deploy/docker/conf/tls/openssl.cnf.example
+
+fullchain.pem
+privkey.pem

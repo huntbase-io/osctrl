@@ -1,0 +1,19 @@
+[req]
+default_bits = 4096
+prompt = no
+default_md = sha256
+x509_extensions = v3_req
+distinguished_name = dn
+
+[dn]
+emailAddress = prod@${ENV:BASE_DOMAIN}
+CN = osctrl.${ENV:BASE_DOMAIN}
+
+[v3_req]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = osctrl.${ENV:BASE_DOMAIN}
+DNS.2 = osctrl-nginx
+DNS.3 = nginx
+DNS.4 = osctrl
