@@ -363,6 +363,13 @@ func init() {
 			EnvVars:     []string{"DB_PASS"},
 			Destination: &dbConfigValues.Password,
 		},
+		&cli.StringFlag{
+			Name:        "db-sslmode",
+			Value:       "disable",
+			Usage:       "SSL native support to encrypt the connection to the backend",
+			EnvVars:     []string{"DB_SSLMODE"},
+			Destination: &dbConfigValues.SSLMode,
+		},
 		&cli.IntFlag{
 			Name:        "db-max-idle-conns",
 			Value:       20,
@@ -546,7 +553,7 @@ func osctrlService() {
 			break
 		}
 		if err != nil {
-			log.Fatal().Msgf("Failed to connect to cache - %v", err)
+			log.Err(err).Msg("Failed to connect to cache")
 			if redisConfig.ConnRetry == 0 {
 				log.Fatal().Msg("Connection to cache failed and no retry was set")
 			}
