@@ -183,16 +183,24 @@ function certbot_certificates_nginx() {
   local __certs_path=$1
   local __name=$2
   local __email=$3
-  local __domain=$4
+  local __domain=$2
   local __cert="$__certs_path/$__name.crt"
   local __key="$__certs_path/$__name.key"
 
   log "Installing certbot components"
 
   package software-properties-common
-  sudo add-apt-repository ppa:certbot/certbot -y
+  if [[ "$DISTRO" == "ubuntu" ]]; then
+	package python3 python3.12-venv libaugeas0  python3-pip
+  fi
+  if [[ "$DISTRO" == "centos" ]]; then
+	package dnf install python3 augeas-libs
+  fi
+  
+  sudo python3 -m venv /opt/certbot/
+  sudo /opt/certbot/bin/pip install --upgrade pip
   package_repo_update
-  package python-certbot-nginx
+  package certbot certbot-nginx
 
   # Just in case nginx is running
   sudo systemctl stop nginx
@@ -200,6 +208,7 @@ function certbot_certificates_nginx() {
   # Generating certificate
   log "Generating certificate with certbot for $DOMAIN"
   sudo certbot -n --agree-tos --standalone certonly -m "$__email" -d "$__domain" --cert-name "$__name" --cert-path "$__cert" --key-path "$__key"
+  echo "0 0,12 * * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
 }
 
 # Service configuration file generation
