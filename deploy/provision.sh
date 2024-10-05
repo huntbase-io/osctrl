@@ -578,13 +578,25 @@ else
 
     # Certbot certificates
     if [[ "$TYPE" == "certbot" ]]; then
-      #certbot_certificates_nginx "$_certificates_dir" "$_certificate_name" "$EMAIL" "$DOMAIN"
-      # FIXME: REMEMBER GENERATE THE CERTIFICATES MANUALLY!
-      _log "************** GENERATE THE CERTIFICATES MANUALLY AND USE THEM WITH -t own **************"
-      exit $OHNOES
-      #sudo cp "/etc/letsencrypt/archive/osctrl/fullchain1.pem" "$_cert_file"
-      #sudo cp "/etc/letsencrypt/archive/osctrl/privkey1.pem" "$_key_file"
+      # Variables
+      _certificates_dir="/etc/letsencrypt/live/$DOMAIN"
+      _cert_file="$_certificates_dir/fullchain.pem"
+      _key_file="$_certificates_dir/privkey.pem"
+
+      # Check if certificates exist
+      if sudo test -f "$_cert_file" && sudo test -f "$_key_file" ; then
+          log "Using existing certificate"
+          sudo ln -s "$_cert_file" "$_certificates_dir/$_NAME-admin.pem"
+          log "Using existing key"
+          sudo ln -s "$_key_file" "$_certificates_dir/$_NAME-admin.pem"
+      else
+          _log "Generating certificates with certbot"
+          certbot_certificates_nginx "$_certificates_dir" "$DOMAIN" "$EMAIL"
+          # create symlink for admin certs
+          sudo ln -s "$_cert_file" "$_certificates_dir/$_NAME-admin.pem"
+      fi
     fi
+
 
     # Diffie-Hellman parameter for DHE ciphersuites
     log "Generating dhparam.pem with $_dh_bits bits... It may take a while"
@@ -624,6 +636,12 @@ else
         package postgresql-client-14
         POSTGRES_SERVICE="postgresql"
         POSTGRES_PSQL="/usr/lib/postgresql/14/bin/psql"
+      elif [[ "$(lsb_release -r | cut -f2 | cut -d'.' -f1)" == "24" ]]; then
+        # Assuming we are in Ubuntu 24.04, which uses postgresql 16
+        package postgresql
+        package postgresql-contrib
+        POSTGRES_SERVICE="postgresql"
+        POSTGRES_PSQL="/usr/lib/postgresql/16/bin/psql"
       else
         # Assuming we are in Ubuntu 20.04, which uses postgresql 12
         package postgresql
@@ -695,7 +713,7 @@ else
     configuration_service "$SOURCE_PATH/deploy/config/$SERVICE_TEMPLATE" "$DEST_PATH/config/$TLS_CONF" "$_T_HOST|$_T_INT_PORT" "$TLS_COMPONENT" "127.0.0.1" "$_T_AUTH" "$_T_LOGGING" "$_T_CARVER" "sudo"
 
     # Systemd configuration for TLS service
-    _systemd "osctrl" "osctrl" "osctrl-tls" "$SOURCE_PATH" "$DEST_PATH" "--redis --db --config"
+    _systemd "osctrl" "osctrl" "osctrl-tls" "$SOURCE_PATH" "$DEST_PATH" "--redis --db --config-file $DEST_PATH/config/tls.json --db-file $DEST_PATH/config/db.json --redis-file $DEST_PATH/config/redis.json --logger-file $DEST_PATH/config/logger.json"
   fi
 
   if [[ "$PART" == "all" ]] || [[ "$PART" == "$ADMIN_COMPONENT" ]]; then
@@ -713,14 +731,14 @@ else
     sudo chown osctrl.osctrl "$DEST_PATH/carved_files"
 
     # Copy osquery tables JSON file
-    sudo cp "$SOURCE_PATH/deploy/osquery/data/$OSQUERY_VERSION.json" "$DEST_PATH/data"
+    sudo cp "$SOURCE_PATHx$OSQUERY_VERSION.json" "$DEST_PATH/data"
 
     # Prepare static files for Admin service
     _static_files "$MODE" "$SOURCE_PATH" "$DEST_PATH" "admin/templates" "tmpl_admin"
     _static_files "$MODE" "$SOURCE_PATH" "$DEST_PATH" "admin/static" "static"
 
     # Systemd configuration for Admin service
-    _systemd "osctrl" "osctrl" "osctrl-admin" "$SOURCE_PATH" "$DEST_PATH" "--redis --db --jwt --config"
+    _systemd "osctrl" "osctrl" "osctrl-admin" "$SOURCE_PATH" "$DEST_PATH" "--redis --db --jwt --config-file $DEST_PATH/config/admin.json --db-file $DEST_PATH/config/db.json --redis-file $DEST_PATH/config/redis.json --jwt-file $DEST_PATH/config/jwt.json --logger-file $DEST_PATH/config/logger.json --carver-file $DEST_PATH/config/carver.json"
   fi
 
   if [[ "$PART" == "all" ]] || [[ "$PART" == "$API_COMPONENT" ]]; then
@@ -731,7 +749,7 @@ else
     configuration_service "$SOURCE_PATH/deploy/config/$SERVICE_TEMPLATE" "$DEST_PATH/config/$API_CONF" "$_P_HOST|$_P_INT_PORT" "$API_COMPONENT" "127.0.0.1" "$_P_AUTH" "$_P_LOGGING" "$_P_CARVER" "sudo"
 
     # Systemd configuration for API service
-    _systemd "osctrl" "osctrl" "osctrl-api" "$SOURCE_PATH" "$DEST_PATH" "--redis --db --jwt --config"
+    _systemd "osctrl" "osctrl" "osctrl-api" "$SOURCE_PATH" "$DEST_PATH" "--redis --db --config-file $DEST_PATH/config/api.json --db-file $DEST_PATH/config/db.json --redis-file $DEST_PATH/config/redis.json"
   fi
 
   # Some needed files

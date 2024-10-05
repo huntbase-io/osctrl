@@ -1,0 +1,166 @@
+services:
+  ######################################### osctrl-tls #########################################
+  osctrl-tls:
+    container_name: 'osctrl-tls'
+    image: 'osctrl-tls:${OSCTRL_VERSION}'
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: deploy/docker-prod/dockerfiles/Dockerfile-tls
+      args:
+        GOLANG_VERSION: ${GOLANG_VERSION}
+    environment:
+      #### osctrl-tls configuration settings ####
+      - SERVICE_LISTENER=0.0.0.0
+      - SERVICE_PORT=9000
+      - SERVICE_HOST=0.0.0.0
+      - SERVICE_AUTH=none
+      - SERVICE_LOGGER=db
+      - LOGGER_DB_SAME=true
+      #### Database settings ####
+      - DB_HOST=${POSTGRES_DB_HOST}
+      - DB_NAME=${POSTGRES_DB_NAME}
+      - DB_USER=${POSTGRES_DB_USERNAME}
+      - DB_PASS=${POSTGRES_DB_PASSWORD}
+      #### Redis settings ####
+      - REDIS_HOST=osctrl-redis
+    networks:
+      - osctrl-backend
+    ports:
+      - 127.0.0.1:9000:9000
+    volumes:
+      - .:/usr/src/app:rw,delegated
+    depends_on:
+      - osctrl-redis
+
+
+  ######################################### osctrl-admin #########################################
+  osctrl-admin:
+    container_name: 'osctrl-admin'
+    image: 'osctrl-admin:${OSCTRL_VERSION}'
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: deploy/docker-prod/dockerfiles/Dockerfile-admin
+      args:
+        GOLANG_VERSION: ${GOLANG_VERSION}
+        OSQUERY_VERSION: ${OSQUERY_VERSION}
+    environment:
+      #### osctrl-admin configuration settings ####
+      - SERVICE_LISTENER=0.0.0.0
+      - SERVICE_PORT=9001
+      - SERVICE_HOST=0.0.0.0
+      - SERVICE_AUTH=db
+      - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_LOGGER=db
+      - LOGGER_DB_SAME=true
+      - SESSION_KEY=${SESSION_KEY}
+      #### Database settings ####
+      - DB_HOST=${POSTGRES_DB_HOST}
+      - DB_NAME=${POSTGRES_DB_NAME}
+      - DB_USER=${POSTGRES_DB_USERNAME}
+      - DB_PASS=${POSTGRES_DB_PASSWORD}
+      #### Redis settings ####
+      - REDIS_HOST=osctrl-redis
+    networks:
+      - osctrl-backend
+    ports:
+      - 127.0.0.1:9001:9001
+    volumes:
+      - .:/usr/src/app:rw,delegated
+    depends_on:
+      - osctrl-redis
+
+
+  ######################################### osctrl-api #########################################
+  osctrl-api:
+    container_name: 'osctrl-api'
+    image: 'osctrl-api:${OSCTRL_VERSION}'
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: deploy/docker-prod/dockerfiles/Dockerfile-api
+      args:
+        GOLANG_VERSION: ${GOLANG_VERSION}
+        OSQUERY_VERSION: ${OSQUERY_VERSION}
+    environment:
+      #### osctrl-api configuration settings ####
+      - SERVICE_LISTENER=0.0.0.0
+      - SERVICE_PORT=9002
+      - SERVICE_HOST=0.0.0.0
+      - SERVICE_AUTH=jwt
+      - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_LOGGER=db
+      #### Database settings ####
+      - DB_HOST=${POSTGRES_DB_HOST}
+      - DB_NAME=${POSTGRES_DB_NAME}
+      - DB_USER=${POSTGRES_DB_USERNAME}
+      - DB_PASS=${POSTGRES_DB_PASSWORD}
+      #### Redis settings ####
+      - REDIS_HOST=osctrl-redis
+    networks:
+      - osctrl-backend
+    ports:
+      - 127.0.0.1:9002:9002
+    volumes:
+      - .:/usr/src/app:rw,delegated
+
+  ######################################### Redis #########################################
+  osctrl-redis:
+    container_name: 'osctrl-redis'
+    image: redis:${REDIS_VERSION}
+    restart: unless-stopped
+    networks:
+      - osctrl-backend
+    ports:
+      - 127.0.0.1:6379:6379
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli","ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  ######################################### osctrl-cli #########################################
+  # osctrl-cli is the component that creates the osctrl env and admin user
+  ##############################################################################################
+  osctrl-cli:
+    container_name: 'osctrl-cli'
+    image: 'osctrl-cli:${OSCTRL_VERSION}'
+    restart: unless-stopped
+    build:
+      context: .
+      target: osctrl-cli
+      dockerfile: deploy/docker-prod/dockerfiles/Dockerfile-cli
+      args:
+        GOLANG_VERSION: ${GOLANG_VERSION}
+        OSQUERY_VERSION: ${OSQUERY_VERSION}
+    tty: true # entrypoint executes `/bin/sh`
+    environment:
+      #### osctrl env ####
+      - ENV_NAME=dev
+      - CERT_FILE=/opt/osctrl/config/fullchain.pem
+      - HOST=osctrl-nginx
+      #### osctrl admin ####
+      - OSCTRL_USER=${OSCTRL_USER}
+      - OSCTRL_PASS=${OSCTRL_PASS}
+      - API_URL=http://osctrl-api:9002
+      #### Database settings ####
+      - DB_HOST=${POSTGRES_DB_HOST}
+      - DB_NAME=${POSTGRES_DB_NAME}
+      - DB_USER=${POSTGRES_DB_USERNAME}
+      - DB_PASS=${POSTGRES_DB_PASSWORD}
+    networks:
+      - osctrl-backend
+    volumes:
+      - type: bind
+        source: ./deploy/docker-prod/conf/tls/fullchain.pem
+        target: /opt/osctrl/config/fullchain.pem
+      - .:/usr/src/app:rw,delegated
+networks:
+  osctrl-backend:
+
+volumes:
+  redis-data:
